@@ -14,7 +14,7 @@ path operator""_p(const char* data, std::size_t sz) {
     return path(data, data + sz);
 }
 
-bool Preprocess(const path& in_file, ifstream& fin, ofstream& fout, const vector<path>& include_directories) {
+bool SubstituteInclude(const path& in_file, ifstream& fin, ofstream& fout, const vector<path>& include_directories) {
     static regex direct(R"/(\s*#\s*include\s*<([^>]*)>\s*)/");
     static regex current(R"/(\s*#\s*include\s*"([^"]*)"\s*)/");
 
@@ -40,7 +40,7 @@ bool Preprocess(const path& in_file, ifstream& fin, ofstream& fout, const vector
             ifstream fin_next(p, ios_base::in);
 
             if (fin_next.is_open()) {
-                if (Preprocess(p, fin_next, fout, include_directories)) {
+                if (SubstituteInclude(p, fin_next, fout, include_directories)) {
                     continue;
                 }
                 else {
@@ -64,8 +64,10 @@ bool Preprocess(const path& in_file, const path& out_file, const vector<path>& i
     }
 
     ofstream fout(out_file, ios_base::out);
-
-    return fout.is_open() && Preprocess(in_file, fin, fout, include_directories);
+    if (!fout.is_open()) {
+        return false;
+    }
+    return SubstituteInclude(in_file, fin, fout, include_directories);
 }
 
 string GetFileContents(string file) {
