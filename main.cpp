@@ -14,8 +14,59 @@ path operator""_p(const char* data, std::size_t sz) {
     return path(data, data + sz);
 }
 
-// напишите эту функцию
-bool Preprocess(const path& in_file, const path& out_file, const vector<path>& include_directories);
+bool Preprocess(const path& in_file, ifstream& fin, ofstream& fout, const vector<path>& include_directories) {
+    static regex direct(R"/(\s*#\s*include\s*<([^>]*)>\s*)/");
+    static regex current(R"/(\s*#\s*include\s*"([^"]*)"\s*)/");
+
+    string line;
+    unsigned number_line = 0;
+
+    while (getline(fin, line)) {
+        ++number_line;
+        smatch m_cur, m_dir;
+
+        if (regex_match(line, m_cur, current) || regex_match(line, m_dir, direct)) {
+            path filename = string(m_dir.empty()? m_cur[1] : m_dir[1]);
+            path p = in_file.parent_path() / filename;
+
+            if (!m_dir.empty() || !filesystem::exists(p)) {
+                for (auto& directory : include_directories) {
+                    p = directory / filename;
+                    if (filesystem::exists(p)) {
+                        break;
+                    }
+                }
+            }
+            ifstream fin_next(p, ios_base::in);
+
+            if (fin_next.is_open()) {
+                if (Preprocess(p, fin_next, fout, include_directories)) {
+                    continue;
+                }
+                else {
+                    return false;
+                }
+            }
+            cout << "unknown include file " << filename.string() << " at file " << in_file.string()
+                << " at line " << number_line << endl;
+            return false;
+        }
+        fout << line << endl;
+    }
+    return true;
+}
+
+bool Preprocess(const path& in_file, const path& out_file, const vector<path>& include_directories) {
+
+    ifstream fin(in_file, ios_base::in);
+    if (!fin.is_open()) {
+        return false;
+    }
+
+    ofstream fout(out_file, ios_base::out);
+
+    return fout.is_open() && Preprocess(in_file, fin, fout, include_directories);
+}
 
 string GetFileContents(string file) {
     ifstream stream(file);
